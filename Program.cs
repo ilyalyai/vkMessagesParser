@@ -93,7 +93,7 @@ namespace HtmlParser
                         {
                             messageCounter++;
                             file.WriteLine(
-                                $"[{message.Item3:dd.mm.yy, HH:mm:ss}] {message.Item1}: {message.Item2}");
+                                $"[{message.Item3:dd.MM.yy, HH:mm:ss}] {message.Item1}: {message.Item2}");
                         }
 
                         chatCounter++;
