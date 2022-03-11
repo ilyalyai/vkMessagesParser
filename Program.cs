@@ -80,7 +80,7 @@ namespace HtmlParser
                         foreach (var message in data)
                         {
                             file.WriteLine(
-                                $"[{message.Item3.ToString("MM/dd/yyyy, HH:mm::ss")}] {message.Item1}: {message.Item2}");
+                                $"[{message.Item3.ToString("dd/mm/yy, HH:mm::ss")}] {message.Item1}: {message.Item2}");
                         }
                     }
                     index++;
