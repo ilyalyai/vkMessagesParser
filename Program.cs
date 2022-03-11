@@ -1,4 +1,4 @@
-﻿using HtmlAgilityPack;
+using HtmlAgilityPack;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -14,6 +14,8 @@ namespace HtmlParser
         {
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
             int index = 0;
+            int chatCounter = 0;
+            int messageCounter = 0;
             var cultureInfo = new CultureInfo("ru-RU");
             Console.WriteLine("Начинаю парсинг...");
             string dirName = "D:\\Ляпцев И.А\\Учеба\\Магистерская\\messages";
@@ -25,67 +27,82 @@ namespace HtmlParser
                 foreach (string s in dirs)
                 {
                     //Если первый символ - скип
-                    if (s.Contains("-"))
+                    if (s.Contains("-") || s.Contains("20000000"))
                         continue;
 
-                    //Для каждой папки- новый txt
-                    using (StreamWriter file = new StreamWriter("D:\\Ляпцев И.А\\Учеба\\Магистерская\\Result\\" + index + ".txt"))
+                    //Проходимся по каждому html-документу, начиная с наибольшего числа
+                    var files = Directory.GetFiles(s).ToList();
+                    List<Tuple<string, string, DateTime>> data =
+                        new();
+                    string chatName = "";
+                    bool isLocalchat = false;
+                    foreach (var m in files)
                     {
-                        //Проходимся по каждому html-документу, начиная с наибольшего числа
-                        var files = Directory.GetFiles(s).ToList();
-                        List<Tuple<string, string, DateTime>> data =
-                            new List<Tuple<string, string, DateTime>>();
-                        foreach (var m in files)
+                        //message__header- имя, если Вы- меняю на Илья Ляпцев
+                        //После </a>- дата и время, преобразуем в нужный формат
+                        //kludges- сообщение
+                        HtmlDocument doc = new();
+                        doc.Load(m, Encoding.GetEncoding(1251));
+
+                        var nodes = doc.DocumentNode.SelectNodes("//div")
+                            .Where(d => d.Attributes.Contains("class"))
+                            .Where(d => d.Attributes["class"].Value == "item").ToList();
+
+                        foreach (HtmlNode node in nodes)
                         {
-                            //message__header- имя, если Вы- меняю на Илья Ляпцев
-                            //После </a>- дата и время, преобразуем в нужный формат
-                            //kludges- сообщение
-                            HtmlDocument doc = new HtmlDocument();
-                            doc.Load(m, Encoding.GetEncoding(1251));
-
-                            //Selecting all the nodes with tagname `span` having "id=ctl00_ContentBody_CacheName".
-                            var nodes = doc.DocumentNode.SelectNodes("//div")
-                                .Where(d => d.Attributes.Contains("class"))
-                                .Where(d => d.Attributes["class"].Value == "item").ToList();
-
-                            foreach (HtmlNode node in nodes)
+                            var text = node.InnerText;
+                            var name = text.Substring(0, text.IndexOf(@", ", StringComparison.Ordinal));
+                            text = text.Remove(0, name.Length + 2);
+                            name = name.Remove(0, 6);
+                            if (name.Contains("Вы"))
+                                name = "Илья Ляпцев";
+                            else
                             {
-                                var text = node.InnerText;
-
-                                var name = text.Substring(0, text.IndexOf(@", ", StringComparison.Ordinal));
-                                text = text.Remove(0, name.Length + 2);
-                                name = name.Remove(0, 6);
-                                if (name.Contains("Вы"))
-                                    name = "Илья Ляпцев";
-
-                                var date = text.Substring(0, text.IndexOf("\n  ", StringComparison.Ordinal));
-
-                                text = text.Remove(0, date.Length + 2);
-                                text = text.Substring(0, text.Length - 8);
-
-                                date = date.Replace(" в ", ", ");
-
-                                date = date.Replace(" (ред.)", "");
-
-                                var datetime = DateTime.Parse(date, cultureInfo);
-
-                                data.Add(new Tuple<string, string, DateTime>(name, text, datetime));
-
-                                Console.WriteLine($"Сообщение от {name} в {datetime}: {text}\n");
+                                if (chatName == "")
+                                {
+                                    chatName = name;
+                                }
+                                else if (!chatName.Equals(name) && !isLocalchat)
+                                {
+                                    isLocalchat = true;
+                                    Console.WriteLine($"Карамба, беседа! Там есть {chatName} и {name}, папка {s}");
+                                }
                             }
-                        }
 
-                        data = data.OrderBy(o => o.Item3).ToList();
+                            var date = text.Substring(0, text.IndexOf("\n  ", StringComparison.Ordinal));
 
-                        foreach (var message in data)
-                        {
-                            file.WriteLine(
-                                $"[{message.Item3.ToString("dd/mm/yy, HH:mm::ss")}] {message.Item1}: {message.Item2}");
+                            text = text.Remove(0, date.Length + 2);
+                            text = text[..^8];
+
+                            date = date.Replace(" в ", ", ");
+
+                            date = date.Replace(" (ред.)", "");
+
+                            var datetime = DateTime.Parse(date, cultureInfo);
+
+                            data.Add(new Tuple<string, string, DateTime>(name, text, datetime));
                         }
                     }
+
+                    data = data.OrderBy(o => o.Item3).ToList();
+
+                    //Для каждой папки- новый txt
+                    using (StreamWriter file = new("D:\\Ляпцев И.А\\Учеба\\Магистерская\\Result\\" + chatName + ".txt"))
+                    {
+                        foreach (var message in data)
+                        {
+                            messageCounter++;
+                            file.WriteLine(
+                                $"[{message.Item3:dd.mm.yy, HH:mm:ss}] {message.Item1}: {message.Item2}");
+                        }
+
+                        chatCounter++;
+                    }
+
                     index++;
                 }
             }
+            Console.WriteLine($"Всего запарсено {chatCounter} бесед и {messageCounter} сообщений!");
         }
     }
 }
